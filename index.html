@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>预测市场 - Polymarket 模式</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar">
+      <div class="sidebar-logo">预测市场</div>
+      <nav class="sidebar-nav">
+        <a href="#" class="active" id="nav-markets" onclick="showSection('markets');return false;">市场大厅</a>
+        <a href="#" id="nav-positions" onclick="showSection('positions');return false;">我的持仓</a>
+        <a href="#" id="nav-orders" onclick="showSection('orders');return false;">当前挂单</a>
+        <a href="#" id="nav-history" onclick="showSection('history');return false;">成交记录</a>
+        <a href="/admin.html" id="admin-link" style="display:none;">管理后台</a>
+        <a href="#" onclick="logout();return false;">退出登录</a>
+      </nav>
+    </aside>
+
+    <main class="main-content">
+      <header class="topbar">
+        <div>
+          <span class="text-muted">账户: </span><strong id="user-name">-</strong>
+        </div>
+        <div>
+          <span class="text-muted">可用余额: </span><strong id="user-balance" class="text-green">0.00</strong>
+        </div>
+      </header>
+
+      <section id="section-markets">
+        <div class="card">
+          <div class="card-title">预测事件列表</div>
+          <div id="markets-grid" class="grid-markets"></div>
+        </div>
+      </section>
+
+      <section id="section-trade" style="display:none;">
+        <div class="mb-3">
+          <button class="btn btn-outline btn-sm" onclick="showSection('markets')">&larr; 返回市场列表</button>
+        </div>
+
+        <div class="card mb-3">
+          <div class="flex-between">
+            <h2 id="contract-name" style="font-size:18px; margin:0;">-</h2>
+            <span id="contract-status" class="badge badge-green">进行中</span>
+          </div>
+          <p id="contract-desc" class="text-muted text-sm mt-2" style="margin-bottom:0;"></p>
+          <div class="text-sm text-muted mt-2">
+            单份兑付面值: <strong id="contract-max-price">100</strong> |
+            价格恒等式: <code>Price(YES) + Price(NO) = 单份面值</code>
+          </div>
+        </div>
+
+        <div class="grid-trade">
+          <div class="card">
+            <div class="flex-between mb-3">
+              <div class="card-title" style="margin:0;">实时订单簿 (<span id="ob-asset-label" class="text-green">YES 视角</span>)</div>
+              <span class="text-sm text-muted">点击价格自动填入</span>
+            </div>
+            <div class="ob-header">
+              <span>价格</span>
+              <span>数量 (份)</span>
+            </div>
+            <div id="orderbook-asks" class="ob-list"></div>
+            <div class="ob-spread" id="orderbook-spread">价差: -</div>
+            <div id="orderbook-bids" class="ob-list"></div>
+          </div>
+
+          <div>
+            <div class="card mb-3">
+              <div class="tab-row mb-3">
+                <button id="tab-action-buy" class="tab-btn active" onclick="setTradeAction('buy')">买入 (Buy)</button>
+                <button id="tab-action-sell" class="tab-btn" onclick="setTradeAction('sell')">卖出 (Sell)</button>
+              </div>
+
+              <div class="outcome-selector mb-3">
+                <button id="btn-outcome-yes" class="outcome-btn yes active" onclick="setTradeAsset('yes')">
+                  <span>YES</span>
+                  <strong id="yes-ref-price">-</strong>
+                </button>
+                <button id="btn-outcome-no" class="outcome-btn no" onclick="setTradeAsset('no')">
+                  <span>NO</span>
+                  <strong id="no-ref-price">-</strong>
+                </button>
+              </div>
+
+              <div class="form-group">
+                <label id="price-label">买入 YES 单价</label>
+                <input type="number" id="order-price" class="form-input" placeholder="例如 60" step="0.1" min="0.1" oninput="updateOrderSummary()">
+              </div>
+
+              <div class="form-group">
+                <label>数量 (份)</label>
+                <input type="number" id="order-amount" class="form-input" placeholder="输入整数份数" min="1" step="1" oninput="updateOrderSummary()">
+              </div>
+
+              <div class="order-summary mb-3">
+                <div class="flex-between text-sm">
+                  <span class="text-muted" id="summary-cost-label">预计支付现金:</span>
+                  <strong id="summary-cost-val">0.00</strong>
+                </div>
+                <div class="flex-between text-sm mt-1">
+                  <span class="text-muted">事件命中最高可获:</span>
+                  <strong class="text-green" id="summary-payout-val">0.00</strong>
+                </div>
+              </div>
+
+              <button id="place-order-btn" class="btn btn-green btn-block" onclick="placeOrder()">买入 YES</button>
+            </div>
+
+            <div class="card mb-3">
+              <div class="card-title">当前事件持仓</div>
+              <div id="my-position" class="text-sm">加载中...</div>
+            </div>
+
+            <div class="card mb-3">
+              <div class="card-title">本事件我的挂单</div>
+              <div id="my-market-orders" class="text-sm text-muted">加载中...</div>
+            </div>
+
+            <div class="card">
+              <div class="card-title">成套拆分与合并 (Split / Merge)</div>
+              <p class="text-sm text-muted" style="margin-top:0;">
+                面值现金 &harr; 1 份 YES + 1 份 NO（无手续费与保证金）
+              </p>
+              <div class="form-group">
+                <input type="number" id="split-amount" class="form-input" value="1" min="1" step="1" placeholder="输入套数">
+              </div>
+              <div class="flex gap-2">
+                <button class="btn btn-primary btn-block" onclick="doSplit()">拆分 (Split)</button>
+                <button class="btn btn-outline btn-block" onclick="doMerge()">合并 (Merge)</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="section-positions" style="display:none;">
+        <div class="card">
+          <div class="card-title">我的现货持仓</div>
+          <table class="table">
+            <thead>
+              <tr>
+                <th>预测事件</th>
+                <th>YES 现货</th>
+                <th>NO 现货</th>
+                <th>单份面值</th>
+                <th>状态</th>
+              </tr>
+            </thead>
+            <tbody id="positions-list"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="section-orders" style="display:none;">
+        <div class="card">
+          <div class="card-title">全部委托挂单</div>
+          <table class="table">
+            <thead>
+              <tr>
+                <th>预测事件</th>
+                <th>方向与标的</th>
+                <th>委托单价</th>
+                <th>剩余数量</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="orders-list"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="section-history" style="display:none;">
+        <div class="card">
+          <div class="card-title">历史成交记录</div>
+          <div id="trades-list"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+  <script src="/js/app.js"></script>
+</body>
+</html>

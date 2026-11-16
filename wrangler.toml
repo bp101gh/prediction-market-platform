@@ -1,0 +1,17 @@
+name = "prediction-market-platform"
+main = "./worker.js"
+compatibility_date = "2024-10-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "prediction-market"
+database_id = ""
+
+[vars]
+SESSION_DAYS = "7"
+PBKDF2_ITERATIONS = "60000"
+LOGIN_MAX_FAILS = "5"
+LOGIN_LOCK_MINUTES = "15"
+ADMIN_USERNAMES = ""
+ADMIN_USER_IDS = ""
+FRONTEND_ORIGIN = ""

@@ -1,0 +1,14 @@
+{
+  "name": "prediction-market-platform",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev --local",
+    "deploy": "wrangler deploy",
+    "db:init": "wrangler d1 execute prediction-market --local --file=schema.sql"
+  },
+  "devDependencies": {
+    "wrangler": "^3.86.0"
+  }
+}
