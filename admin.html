@@ -8,257 +8,52 @@
 </head>
 <body>
   <div class="app-layout">
-    <aside class="sidebar">
-      <div class="sidebar-logo">管理后台</div>
-      <nav class="sidebar-nav">
-        <a href="/index.html">&larr; 返回交易前台</a>
-      </nav>
-    </aside>
-
+    <aside class="sidebar"><div class="sidebar-logo">管理后台</div><nav class="sidebar-nav"><a href="/index.html">&larr; 返回交易前台</a></nav></aside>
     <main class="main-content">
       <section class="card mb-4">
         <div class="card-title">发布新预测事件</div>
-        <div class="form-group">
-          <label for="c-name">事件标题</label>
-          <input id="c-name" class="form-input" type="text">
-        </div>
-        <div class="form-group">
-          <label for="c-desc">规则说明</label>
-          <input id="c-desc" class="form-input" type="text">
-        </div>
-        <div class="form-group">
-          <label for="c-max">单份兑付面值</label>
-          <input id="c-max" class="form-input" type="number" value="100" min="0.01" step="0.01">
-        </div>
+        <div class="form-group"><label for="c-name">事件标题</label><input id="c-name" class="form-input" type="text"></div>
+        <div class="form-group"><label for="c-desc">规则说明</label><input id="c-desc" class="form-input" type="text"></div>
+        <div class="form-group"><label for="c-max">单份兑付面值</label><input id="c-max" class="form-input" type="number" value="100" min="0.01" step="0.01"></div>
+        <div class="form-group"><label for="c-deadline">投注截止时间（按本地时区）</label><input id="c-deadline" class="form-input" type="datetime-local" required></div>
         <button class="btn btn-primary" onclick="createContract()">创建事件</button>
       </section>
-
-      <section class="card mb-4">
-        <div class="card-title">事件管理与结果结算</div>
-        <table class="table">
-          <thead>
-            <tr>
-              <th>ID</th><th>事件名称</th><th>面值</th><th>状态</th><th>结算操作</th>
-            </tr>
-          </thead>
-          <tbody id="admin-contracts"></tbody>
-        </table>
-      </section>
-
-      <section class="card mb-4">
-        <div class="card-title">用户积分管理</div>
-        <table class="table">
-          <thead>
-            <tr>
-              <th>ID</th><th>用户名</th><th>当前积分</th><th>调整数量</th><th>原因</th><th>操作</th>
-            </tr>
-          </thead>
-          <tbody id="admin-users"></tbody>
-        </table>
-      </section>
-
-      <section class="card">
-        <div class="card-title">管理员操作审计（最近 100 条）</div>
-        <table class="table">
-          <thead>
-            <tr>
-              <th>时间</th><th>管理员</th><th>目标用户</th>
-              <th>变更</th><th>调整前</th><th>调整后</th><th>原因</th>
-            </tr>
-          </thead>
-          <tbody id="admin-audit"></tbody>
-        </table>
-      </section>
+      <section class="card mb-4"><div class="card-title">事件管理与结果结算</div><table class="table"><thead><tr><th>ID</th><th>事件名称</th><th>面值</th><th>投注截止时间</th><th>状态</th><th>结算操作</th></tr></thead><tbody id="admin-contracts"></tbody></table></section>
+      <section class="card mb-4"><div class="card-title">用户积分管理</div><table class="table"><thead><tr><th>ID</th><th>用户名</th><th>当前积分</th><th>调整数量</th><th>原因</th><th>操作</th></tr></thead><tbody id="admin-users"></tbody></table></section>
+      <section class="card"><div class="card-title">管理员操作审计（最近 100 条）</div><table class="table"><thead><tr><th>时间</th><th>管理员</th><th>目标用户</th><th>变更</th><th>调整前</th><th>调整后</th><th>原因</th></tr></thead><tbody id="admin-audit"></tbody></table></section>
     </main>
   </div>
-
   <script>
     const API_BASE = '';
     const token = localStorage.getItem('token');
-
-    function escapeHTML(value) {
-      return String(value ?? '').replace(/[&<>\"']/g, char => ({
-        '&': '&amp;',
-        '<': '&lt;',
-        '>': '&gt;',
-        '"': '&quot;',
-        "'": '&#39;'
-      })[char]);
-    }
-
-    async function api(path, options = {}) {
-      return fetch(API_BASE + path, {
-        ...options,
-        headers: {
-          ...(options.headers || {}),
-          Authorization: 'Bearer ' + token
-        }
-      });
-    }
-
+    function escapeHTML(value) { return String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char])); }
+    async function api(path, options = {}) { return fetch(API_BASE + path, {...options, headers:{...(options.headers||{}), Authorization:'Bearer '+token}}); }
     async function loadAdminData() {
-      if (!token) {
-        location.href = '/login.html';
-        return;
-      }
-
-      const contractsResponse = await api('/api/contracts');
-      const contractsData = await contractsResponse.json();
-
-      document.getElementById('admin-contracts').innerHTML =
-        (contractsData.contracts || []).map(contract => `
-          <tr>
-            <td>${Number(contract.id)}</td>
-            <td>${escapeHTML(contract.name)}</td>
-            <td>${Number(contract.max_price).toFixed(2)}</td>
-            <td>${contract.status === 'active'
-              ? '进行中'
-              : contract.status === 'settling'
-                ? '结算中'
-                : `已结算 (${escapeHTML(contract.end_result || '')})`}</td>
-            <td>${['active', 'settling'].includes(contract.status) ? `
-              <button class="btn btn-green btn-sm"
-                onclick="settleContract(${Number(contract.id)}, 'yes')">结算 YES</button>
-              <button class="btn btn-red btn-sm"
-                onclick="settleContract(${Number(contract.id)}, 'no')">结算 NO</button>
-            ` : '-'}</td>
-          </tr>
-        `).join('');
-
-      const usersResponse = await api('/api/admin/users');
-      if (!usersResponse.ok) {
-        alert('无管理员权限或登录已过期');
-        location.href = '/index.html';
-        return;
-      }
-
-      const usersData = await usersResponse.json();
-      document.getElementById('admin-users').innerHTML =
-        (usersData.users || []).map(user => `
-          <tr>
-            <td>${Number(user.id)}</td>
-            <td>${escapeHTML(user.username)}${user.is_admin ? ' (管理员)' : ''}</td>
-            <td>${Number(user.balance).toFixed(2)}</td>
-            <td>
-              <input class="form-input" type="number" min="0.01" step="0.01"
-                id="amount-${Number(user.id)}" value="100" style="width:110px">
-            </td>
-            <td>
-              <input class="form-input" type="text"
-                id="reason-${Number(user.id)}" value="管理员手工调整"
-                maxlength="300" style="min-width:160px">
-            </td>
-            <td>
-              <button class="btn btn-green btn-sm"
-                onclick="adjustBalance(${Number(user.id)}, 1)">增加</button>
-              <button class="btn btn-red btn-sm"
-                onclick="adjustBalance(${Number(user.id)}, -1)">扣减</button>
-            </td>
-          </tr>
-        `).join('');
-
-      const auditResponse = await api('/api/admin/audit');
-      if (auditResponse.ok) {
-        const auditData = await auditResponse.json();
-        document.getElementById('admin-audit').innerHTML =
-          (auditData.audit || []).map(item => `
-            <tr>
-              <td>${escapeHTML(item.created_at)}</td>
-              <td>${escapeHTML(item.admin_username)}</td>
-              <td>${escapeHTML(item.target_username)}</td>
-              <td>${Number(item.amount).toFixed(2)}</td>
-              <td>${Number(item.balance_before).toFixed(2)}</td>
-              <td>${Number(item.balance_after).toFixed(2)}</td>
-              <td>${escapeHTML(item.reason)}</td>
-            </tr>
-          `).join('') || '<tr><td colspan="7">暂无审计记录</td></tr>';
-      }
+      if (!token) { location.href='/login.html'; return; }
+      const contractsResponse=await api('/api/contracts'); const contractsData=await contractsResponse.json();
+      document.getElementById('admin-contracts').innerHTML=(contractsData.contracts||[]).map(contract=>`
+        <tr><td>${Number(contract.id)}</td><td>${escapeHTML(contract.name)}</td><td>${Number(contract.max_price).toFixed(2)}</td>
+        <td>${contract.status==='active'?'进行中':contract.status==='settling'?'结算中':`已结算 (${escapeHTML(contract.end_result||'')})`}</td>
+        <td>${['active','settling'].includes(contract.status)?`<button class="btn btn-green btn-sm" onclick="settleContract(${Number(contract.id)},'yes')">结算 YES</button> <button class="btn btn-red btn-sm" onclick="settleContract(${Number(contract.id)},'no')">结算 NO</button>`:'-'}</td></tr>`).join('');
+      const usersResponse=await api('/api/admin/users');
+      if(!usersResponse.ok){alert('无管理员权限或登录已过期');location.href='/index.html';return;}
+      const usersData=await usersResponse.json();
+      document.getElementById('admin-users').innerHTML=(usersData.users||[]).map(user=>`<tr><td>${Number(user.id)}</td><td>${escapeHTML(user.username)}${user.is_admin?' (管理员)':''}</td><td>${Number(user.balance).toFixed(2)}</td><td><input class="form-input" type="number" min="0.01" step="0.01" id="amount-${Number(user.id)}" value="100" style="width:110px"></td><td><input class="form-input" type="text" id="reason-${Number(user.id)}" value="管理员手工调整" maxlength="300" style="min-width:160px"></td><td><button class="btn btn-green btn-sm" onclick="adjustBalance(${Number(user.id)},1)">增加</button> <button class="btn btn-red btn-sm" onclick="adjustBalance(${Number(user.id)},-1)">扣减</button></td></tr>`).join('');
+      const auditResponse=await api('/api/admin/audit');
+      if(auditResponse.ok){const auditData=await auditResponse.json();document.getElementById('admin-audit').innerHTML=(auditData.audit||[]).map(item=>`<tr><td>${escapeHTML(item.created_at)}</td><td>${escapeHTML(item.admin_username)}</td><td>${escapeHTML(item.target_username)}</td><td>${Number(item.amount).toFixed(2)}</td><td>${Number(item.balance_before).toFixed(2)}</td><td>${Number(item.balance_after).toFixed(2)}</td><td>${escapeHTML(item.reason)}</td></tr>`).join('')||'<tr><td colspan="7">暂无审计记录</td></tr>';}
     }
-
     async function createContract() {
-      const name = document.getElementById('c-name').value.trim();
-      const description = document.getElementById('c-desc').value.trim();
-      const max_price = Number(document.getElementById('c-max').value);
-
-      if (!name || !Number.isFinite(max_price) || max_price <= 0) {
-        alert('请填写事件名称和有效面值');
-        return;
-      }
-
-      const response = await api('/api/contracts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, description, max_price })
-      });
-
-      const data = await response.json();
-      if (!response.ok) {
-        alert(data.error || '创建失败');
-        return;
-      }
-
-      document.getElementById('c-name').value = '';
-      document.getElementById('c-desc').value = '';
-      document.getElementById('c-max').value = '100';
-      await loadAdminData();
+      const name=document.getElementById('c-name').value.trim(), description=document.getElementById('c-desc').value.trim(), max_price=Number(document.getElementById('c-max').value);
+      const input=document.getElementById('c-deadline'), localValue=input.value;
+      if(!name||!Number.isFinite(max_price)||max_price<=0||!localValue||new Date(localValue).getTime()<=Date.now()){alert('请填写事件名称、有效面值以及晚于当前时间的投注截止时间');input.focus();return;}
+      const betting_closes_at=new Date(localValue).toISOString();
+      const response=await api('/api/contracts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,description,max_price,betting_closes_at})});
+      const data=await response.json();if(!response.ok){alert(data.error||'创建失败');return;}
+      document.getElementById('c-name').value='';document.getElementById('c-desc').value='';document.getElementById('c-max').value='100';input.value='';await loadAdminData();
     }
-
-    async function settleContract(id, result) {
-      if (!confirm(`确定结算为 ${result.toUpperCase()}？此操作不可逆。`)) return;
-
-      const response = await api(`/api/contracts/${id}/end`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ result })
-      });
-
-      const data = await response.json();
-      alert(data.message || data.error || '结算完成');
-      await loadAdminData();
-    }
-
-    async function adjustBalance(userId, direction) {
-      const amountInput = document.getElementById(`amount-${userId}`);
-      const reasonInput = document.getElementById(`reason-${userId}`);
-      const amount = Number(amountInput.value);
-      const reason = reasonInput.value.trim();
-
-      if (!Number.isFinite(amount) || amount <= 0) {
-        alert('请输入大于 0 的调整数量');
-        amountInput.focus();
-        return;
-      }
-
-      if (!reason) {
-        alert('请填写调整原因');
-        reasonInput.focus();
-        return;
-      }
-
-      const delta = Number((amount * direction).toFixed(2));
-      const action = direction > 0 ? '增加' : '扣减';
-
-      if (!confirm(`确定${action} ${amount.toFixed(2)} 积分？原因：${reason}`)) return;
-
-      const idempotency_key = (crypto.randomUUID && crypto.randomUUID()) ||
-        Date.now() + '-' + Math.random().toString(16).slice(2);
-
-      const response = await api(`/api/admin/users/${userId}/balance`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount: delta, reason, idempotency_key })
-      });
-
-      const data = await response.json();
-      if (!response.ok) {
-        alert(data.error || `${action}失败`);
-        return;
-      }
-
-      await loadAdminData();
-    }
-
-    document.addEventListener('DOMContentLoaded', loadAdminData);
+    async function settleContract(id,result){if(!confirm(`确定结算为 ${result.toUpperCase()}？此操作不可逆。`))return;const response=await api(`/api/contracts/${id}/end`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({result})});const data=await response.json();alert(data.message||data.error||'结算完成');await loadAdminData();}
+    async function adjustBalance(userId,direction){const amountInput=document.getElementById(`amount-${userId}`),reasonInput=document.getElementById(`reason-${userId}`),amount=Number(amountInput.value),reason=reasonInput.value.trim();if(!Number.isFinite(amount)||amount<=0){alert('请输入大于 0 的调整数量');amountInput.focus();return;}if(!reason){alert('请填写调整原因');reasonInput.focus();return;}const delta=Number((amount*direction).toFixed(2)),action=direction>0?'增加':'扣减';if(!confirm(`确定${action} ${amount.toFixed(2)} 积分？原因：${reason}`))return;const idempotency_key=(crypto.randomUUID&&crypto.randomUUID())||Date.now()+'-'+Math.random().toString(16).slice(2);const response=await api(`/api/admin/users/${userId}/balance`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({amount:delta,reason,idempotency_key})});const data=await response.json();if(!response.ok){alert(data.error||`${action}失败`);return;}await loadAdminData();}
+    document.addEventListener('DOMContentLoaded',loadAdminData);
   </script>
 </body>
 </html>
